@@ -1,0 +1,3 @@
+node_modules/
+tx/.venv/
+esp32_wifi/secrets.h
