@@ -8,19 +8,21 @@
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --bg: #080810;
-            --surface: #10101e;
-            --surface2: #18182a;
-            --border: rgba(120,100,255,0.13);
-            --border2: rgba(120,100,255,0.28);
-            --purple: #a78bfa;
+            --bg: #1a1030;
+            --surface: #241848;
+            --surface2: #2e1f5e;
+            --surface3: #3a2570;
+            --border: rgba(167,139,250,0.18);
+            --border2: rgba(167,139,250,0.38);
+            --purple: #c4b5fd;
             --purple-dim: #7c3aed;
+            --purple-mid: #9333ea;
             --aqua: #22d3ee;
             --aqua-dim: #0891b2;
-            --white: #f0f0f8;
-            --muted: #6b6b8a;
+            --white: #f0eeff;
+            --muted: #8b80b0;
             --sun: #fbbf24;
-            --moon: #818cf8;
+            --moon: #c4b5fd;
             --font-mono: 'Space Mono', monospace;
             --font-body: 'DM Sans', sans-serif;
         }
@@ -38,14 +40,27 @@
             position: fixed;
             inset: 0;
             background-image:
-                linear-gradient(rgba(120,100,255,0.04) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(120,100,255,0.04) 1px, transparent 1px);
+                linear-gradient(rgba(167,139,250,0.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(167,139,250,0.06) 1px, transparent 1px);
             background-size: 40px 40px;
             pointer-events: none;
             z-index: 0;
         }
 
-        .wrap { max-width: 620px; margin: 0 auto; position: relative; z-index: 1; }
+        body::after {
+            content: '';
+            position: fixed;
+            top: -200px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 400px;
+            background: radial-gradient(ellipse, rgba(124,58,237,0.18) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .wrap { max-width: 640px; margin: 0 auto; position: relative; z-index: 1; }
 
         header {
             display: flex;
@@ -66,12 +81,12 @@
 
         .logo strong { color: var(--purple); font-weight: 700; }
 
-        .header-right { display: flex; align-items: center; gap: 10px; }
+        .header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-        .esp-badge, .led-badge {
+        .led-badge {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 7px;
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 100px;
@@ -82,28 +97,12 @@
             transition: all 0.4s;
         }
 
-        .esp-badge.on { border-color: var(--aqua); color: var(--aqua); }
-
-        .badge-dot {
-            width: 7px; height: 7px;
-            border-radius: 50%;
-            background: #333;
-            transition: all 0.4s;
-        }
-
-        .esp-badge.on .badge-dot {
-            background: var(--aqua);
-            box-shadow: 0 0 6px var(--aqua);
-            animation: blink 2s infinite;
-        }
-
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
         #led-dot {
             width: 12px; height: 12px;
             border-radius: 50%;
-            background: #1a1a2a;
+            background: var(--surface3);
             transition: all 0.3s;
+            flex-shrink: 0;
         }
 
         .card {
@@ -112,10 +111,13 @@
             border-radius: 20px;
             padding: 22px 24px;
             margin-bottom: 14px;
-            transition: border-color 0.3s;
+            transition: border-color 0.3s, box-shadow 0.3s;
         }
 
-        .card:hover { border-color: var(--border2); }
+        .card:hover {
+            border-color: var(--border2);
+            box-shadow: 0 4px 24px rgba(124,58,237,0.1);
+        }
 
         .card-label {
             font-family: var(--font-mono);
@@ -126,33 +128,68 @@
             margin-bottom: 16px;
         }
 
-        .sensor-inner {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            margin-bottom: 16px;
+        .esp-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 14px;
         }
 
-        .sensor-icon {
-            width: 64px; height: 64px;
+        .esp-mini-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 16px;
+            padding: 16px 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .esp-mini-card.on { border-color: rgba(34,211,238,0.45); box-shadow: 0 0 16px rgba(34,211,238,0.08); }
+        .esp-mini-card.on2 { border-color: rgba(196,181,253,0.45); box-shadow: 0 0 16px rgba(196,181,253,0.08); }
+
+        .esp-mini-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: var(--surface3);
+            flex-shrink: 0;
+            transition: all 0.3s;
+        }
+
+        .esp-mini-card.on .esp-mini-dot { background: var(--aqua); box-shadow: 0 0 8px var(--aqua); animation: blink 2s infinite; }
+        .esp-mini-card.on2 .esp-mini-dot { background: var(--purple); box-shadow: 0 0 8px var(--purple); animation: blink 2s infinite; }
+
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+        .esp-mini-info { flex: 1; }
+        .esp-mini-name { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+        .esp-mini-status { font-size: 12px; font-family: var(--font-mono); color: var(--muted); transition: color 0.3s; margin-top: 2px; }
+        .esp-mini-card.on .esp-mini-status { color: var(--aqua); }
+        .esp-mini-card.on2 .esp-mini-status { color: var(--purple); }
+
+        .sensor-inner { display: flex; align-items: center; gap: 20px; margin-bottom: 16px; }
+
+        .sensor-icon {
+            width: 68px; height: 68px;
+            border-radius: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 32px;
+            font-size: 34px;
             flex-shrink: 0;
             background: var(--surface2);
             transition: all 0.5s;
         }
 
-        .sensor-icon.day { background: rgba(251,191,36,0.12); box-shadow: 0 0 24px rgba(251,191,36,0.15); }
-        .sensor-icon.night { background: rgba(129,140,248,0.12); box-shadow: 0 0 24px rgba(129,140,248,0.15); }
+        .sensor-icon.day { background: rgba(251,191,36,0.15); box-shadow: 0 0 28px rgba(251,191,36,0.2); }
+        .sensor-icon.night { background: rgba(196,181,253,0.12); box-shadow: 0 0 28px rgba(196,181,253,0.15); }
 
         .sensor-info { flex: 1; }
 
         .sensor-val {
             font-family: var(--font-mono);
-            font-size: 42px;
+            font-size: 44px;
             font-weight: 700;
             line-height: 1;
             color: var(--aqua);
@@ -162,30 +199,11 @@
         .sensor-val.day { color: var(--sun); }
         .sensor-val.night { color: var(--moon); }
 
-        .sensor-desc {
-            font-size: 13px;
-            color: var(--muted);
-            margin-top: 4px;
-            font-family: var(--font-mono);
-            letter-spacing: 1px;
-        }
+        .sensor-desc { font-size: 12px; color: var(--muted); margin-top: 6px; font-family: var(--font-mono); letter-spacing: 1px; }
 
-        .sensor-bar-wrap {
-            height: 4px;
-            background: var(--surface2);
-            border-radius: 2px;
-            margin-bottom: 14px;
-            overflow: hidden;
-        }
+        .sensor-bar-wrap { height: 5px; background: var(--surface2); border-radius: 3px; margin-bottom: 14px; overflow: hidden; }
 
-        .sensor-bar {
-            height: 100%;
-            border-radius: 2px;
-            background: var(--aqua);
-            width: 0%;
-            transition: width 0.4s, background 0.5s;
-        }
-
+        .sensor-bar { height: 100%; border-radius: 3px; background: var(--aqua); width: 0%; transition: width 0.4s, background 0.5s; }
         .sensor-bar.day { background: var(--sun); }
         .sensor-bar.night { background: var(--moon); }
 
@@ -198,27 +216,17 @@
             align-items: center;
             gap: 8px;
             margin-bottom: 12px;
-            padding: 8px 12px;
-            background: rgba(124,58,237,0.1);
-            border: 1px solid rgba(124,58,237,0.25);
-            border-radius: 10px;
+            padding: 9px 14px;
+            background: rgba(124,58,237,0.15);
+            border: 1px solid rgba(167,139,250,0.3);
+            border-radius: 12px;
         }
 
-        .mic-pulse {
-            width: 8px; height: 8px;
-            border-radius: 50%;
-            background: var(--purple);
-            animation: pulso 1s infinite;
-        }
+        .mic-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--purple); animation: pulso 1s infinite; flex-shrink: 0; }
 
         @keyframes pulso { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
 
-        .mic-label {
-            font-size: 12px;
-            font-family: var(--font-mono);
-            color: var(--purple);
-            letter-spacing: 1px;
-        }
+        .mic-label { font-size: 12px; font-family: var(--font-mono); color: var(--purple); letter-spacing: 1px; }
 
         button {
             width: 100%;
@@ -234,29 +242,14 @@
             letter-spacing: 0.5px;
         }
 
-        button:hover { border-color: var(--border2); background: #1e1e32; }
+        button:hover { border-color: var(--border2); background: var(--surface3); }
         button:active { transform: scale(0.98); }
 
-        .btn-primary {
-            background: var(--aqua);
-            color: #080810;
-            border-color: var(--aqua);
-            font-weight: 500;
-        }
+        .btn-aqua { background: var(--aqua); color: #0f0a20; border-color: var(--aqua); font-weight: 500; }
+        .btn-aqua:hover { background: var(--aqua-dim); border-color: var(--aqua-dim); color: #fff; }
 
-        .btn-primary:hover { background: var(--aqua-dim); border-color: var(--aqua-dim); color: #fff; }
-
-        .btn-purple {
-            background: var(--purple-dim);
-            color: #fff;
-            border-color: var(--purple-dim);
-            font-weight: 500;
-            width: auto;
-            padding: 11px 20px;
-            flex-shrink: 0;
-        }
-
-        .btn-purple:hover { background: #6d28d9; border-color: #6d28d9; }
+        .btn-purple { background: var(--purple-mid); color: #fff; border-color: var(--purple-mid); font-weight: 500; width: auto; padding: 11px 22px; flex-shrink: 0; }
+        .btn-purple:hover { background: var(--purple-dim); border-color: var(--purple-dim); }
 
         .input-row { display: flex; gap: 10px; }
 
@@ -281,7 +274,7 @@
             overflow-y: auto;
             font-family: var(--font-mono);
             font-size: 11px;
-            line-height: 1.8;
+            line-height: 1.9;
             scrollbar-width: thin;
             scrollbar-color: var(--border2) transparent;
         }
@@ -297,13 +290,10 @@
 </head>
 <body>
 <div class="wrap">
+
     <header>
         <div class="logo"><strong>ESP32</strong> // control panel</div>
         <div class="header-right">
-            <div class="esp-badge" id="esp-badge">
-                <div class="badge-dot"></div>
-                <span id="esp-status">desconectado</span>
-            </div>
             <div class="led-badge">
                 <div id="led-dot"></div>
                 <span id="led-label" style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">led off</span>
@@ -311,8 +301,27 @@
         </div>
     </header>
 
+    <!-- Estado ESP32s -->
+    <div class="esp-row">
+        <div class="esp-mini-card" id="esp1-card">
+            <div class="esp-mini-dot"></div>
+            <div class="esp-mini-info">
+                <div class="esp-mini-name">esp32 — 1</div>
+                <div class="esp-mini-status" id="esp1-status">desconectado</div>
+            </div>
+        </div>
+        <div class="esp-mini-card" id="esp2-card">
+            <div class="esp-mini-dot"></div>
+            <div class="esp-mini-info">
+                <div class="esp-mini-name">esp32 — 2</div>
+                <div class="esp-mini-status" id="esp2-status">desconectado</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sensor -->
     <div class="card">
-        <div class="card-label">sensor // fotoresistencia</div>
+        <div class="card-label">sensor // fotoresistencia · esp32-1</div>
         <div class="sensor-inner">
             <div class="sensor-icon" id="sensor-icon">◐</div>
             <div class="sensor-info">
@@ -326,6 +335,7 @@
         <canvas id="grafica" height="80"></canvas>
     </div>
 
+    <!-- Voz -->
     <div class="card">
         <div class="card-label">reconocimiento // voz</div>
         <div class="mic-indicator" id="mic-indicator">
@@ -333,23 +343,26 @@
             <span class="mic-label">escuchando...</span>
         </div>
         <div class="voz-row">
-            <button class="btn-primary" id="btn-voz" onclick="iniciarVoz()">▶ iniciar</button>
+            <button class="btn-aqua" id="btn-voz" onclick="iniciarVoz()">▶ iniciar</button>
             <button onclick="detenerVoz()">■ detener</button>
         </div>
     </div>
 
+    <!-- Texto -->
     <div class="card">
         <div class="card-label">comando // texto</div>
         <div class="input-row">
-            <input type="text" id="cmd-input" placeholder="ENCENDER / APAGAR" />
+            <input type="text" id="cmd-input" placeholder="ENCENDER / APAGAR / ACTIVAR / DESACTIVAR" />
             <button class="btn-purple" onclick="enviarTexto()">enviar</button>
         </div>
     </div>
 
+    <!-- Log -->
     <div class="card">
         <div class="card-label">log // servidor</div>
         <div class="log-box" id="log"></div>
     </div>
+
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -375,7 +388,7 @@ function actualizarLed(encendido) {
         label.textContent = 'led on';
         label.style.color = '#22d3ee';
     } else {
-        dot.style.background = '#1a1a2a';
+        dot.style.background = 'var(--surface3)';
         dot.style.boxShadow = 'none';
         label.textContent = 'led off';
         label.style.color = 'var(--muted)';
@@ -421,10 +434,10 @@ function dibujarGrafica() {
     canvas.width = W;
     canvas.height = H;
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#10101e';
+    ctx.fillStyle = '#241848';
     ctx.fillRect(0, 0, W, H);
 
-    ctx.strokeStyle = 'rgba(120,100,255,0.08)';
+    ctx.strokeStyle = 'rgba(167,139,250,0.1)';
     ctx.lineWidth = 1;
     for (let i = 0; i <= 4; i++) {
         const y = (H / 4) * i;
@@ -434,7 +447,7 @@ function dibujarGrafica() {
     if (datos.length < 2) return;
 
     const last = datos[datos.length - 1];
-    const lineColor = last > 2500 ? '#fbbf24' : last > 1000 ? '#22d3ee' : '#818cf8';
+    const lineColor = last > 2500 ? '#fbbf24' : last > 1000 ? '#22d3ee' : '#c4b5fd';
 
     ctx.beginPath();
     datos.forEach((v, i) => {
@@ -443,7 +456,7 @@ function dibujarGrafica() {
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
     ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
-    ctx.fillStyle = lineColor + '22';
+    ctx.fillStyle = lineColor + '28';
     ctx.fill();
 
     ctx.beginPath();
@@ -465,11 +478,16 @@ function dibujarGrafica() {
 }
 
 socket.on('esp32_status', function(data) {
-    const badge = document.getElementById('esp-badge');
-    const status = document.getElementById('esp-status');
-    badge.className = 'esp-badge' + (data.conectado ? ' on' : '');
-    status.textContent = data.conectado ? 'conectado' : 'desconectado';
-    notificar('ESP32', data.conectado ? 'conectado' : 'desconectado');
+    const c1 = document.getElementById('esp1-card');
+    const c2 = document.getElementById('esp2-card');
+    const s1 = document.getElementById('esp1-status');
+    const s2 = document.getElementById('esp2-status');
+
+    c1.className = 'esp-mini-card' + (data.led ? ' on' : '');
+    s1.textContent = data.led ? 'conectado' : 'desconectado';
+
+    c2.className = 'esp-mini-card' + (data.led2 ? ' on2' : '');
+    s2.textContent = data.led2 ? 'conectado' : 'desconectado';
 });
 
 socket.on('voz_status', function(data) {
@@ -485,7 +503,7 @@ socket.on('voz_status', function(data) {
         btn.textContent = '▶ iniciar';
         btn.style.background = 'var(--aqua)';
         btn.style.borderColor = 'var(--aqua)';
-        btn.style.color = '#080810';
+        btn.style.color = '#0f0a20';
         ind.style.display = 'none';
     }
 });

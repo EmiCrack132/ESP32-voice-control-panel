@@ -74,7 +74,7 @@ io.on('connection', function(socket) {
     socket.emit('esp32_status', { led: ESP32_LED !== null, led2: ESP32_LED2 !== null });
     socket.emit('voz_status', { activa: vozActiva });
 
-    socket.on('esp32_led', function() {
+    socket.on('arduino_conectado', function() {
         ESP32_LED = socket.id;
         console.log('ESP32-1 (LED+sensor) registrado:', socket.id);
         io.sockets.emit('esp32_status', { led: true, led2: ESP32_LED2 !== null });
