@@ -100,7 +100,7 @@ En **esp32_wifi.ino** (ESP32 #1):
 ```cpp
 const char* ssid     = "TU_WIFI";
 const char* password = "TU_PASSWORD";
-const char* serverIP = "192.168.X.X";  // IP de tu compu
+const char* serverIP = "XXX.XXX.X.X";  // IP de tu compu
 ```
 El evento de identificación es `arduino_conectado`.
 
@@ -108,7 +108,7 @@ En **esp32_wifi_2.ino** (ESP32 #2):
 ```cpp
 const char* ssid     = "TU_WIFI";
 const char* password = "TU_PASSWORD";
-const char* serverIP = "192.168.X.X";  // IP de tu compu
+const char* serverIP = "XXX.XXX.X.X";  // IP de tu compu
 ```
 El evento de identificación es `esp32_led2`.
 
