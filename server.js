@@ -2,12 +2,13 @@ var express = require('express');
 var app = express();
 var server = require('http').Server(app);
 const io = require('socket.io')(server);
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 
 app.use(express.static('public'));
 
-let ESP32_LED = null;      // primer ESP32 — LED + sensor
-let ESP32_LED2 = null;     // segundo ESP32 — LED interno
+let ESP32_LED = null;
+let ESP32_LED2 = null;
+let procesoVoz = null;
 let vozActiva = false;
 
 const pythonPath = './tx/.venv/Scripts/python.exe';
@@ -20,12 +21,13 @@ console.log = function(...args) {
 
 app.get('/iniciar-voz', function(req, res) {
     if (vozActiva) { res.json({ ok: false, msg: 'Voz ya está corriendo' }); return; }
-    const proc = spawn(pythonPath, ['./tx/tx_voz.py']);
+    procesoVoz = spawn(pythonPath, ['./tx/tx_voz.py']);
     vozActiva = true;
     io.sockets.emit('voz_status', { activa: true });
-    proc.stdout.on('data', (d) => console.log('VOZ:', d.toString().trim()));
-    proc.stderr.on('data', (d) => console.log('VOZ ERR:', d.toString().trim()));
-    proc.on('close', () => {
+    procesoVoz.stdout.on('data', (d) => console.log('VOZ:', d.toString().trim()));
+    procesoVoz.stderr.on('data', (d) => console.log('VOZ ERR:', d.toString().trim()));
+    procesoVoz.on('close', () => {
+        procesoVoz = null;
         vozActiva = false;
         io.sockets.emit('voz_status', { activa: false });
         console.log('Voz terminado');
@@ -34,8 +36,14 @@ app.get('/iniciar-voz', function(req, res) {
 });
 
 app.get('/detener-voz', function(req, res) {
-    vozActiva = false;
-    io.sockets.emit('voz_status', { activa: false });
+    if (procesoVoz) {
+        exec('taskkill /PID ' + procesoVoz.pid + ' /T /F', (err) => {
+            if (err) console.log('Error al matar proceso:', err.message);
+        });
+        procesoVoz = null;
+        vozActiva = false;
+        io.sockets.emit('voz_status', { activa: false });
+    }
     res.json({ ok: true, msg: 'Voz detenido' });
 });
 
@@ -49,13 +57,7 @@ app.get('/comando/:texto', function(req, res) {
         enviado = true;
     }
 
-    if (ESP32_LED2 && cmd.includes('ACTIVAR')) {
-        io.to(ESP32_LED2).emit('comando', cmd);
-        console.log('Comando a ESP32-2:', cmd);
-        enviado = true;
-    }
-
-    if (ESP32_LED2 && cmd.includes('DESACTIVAR')) {
+    if (ESP32_LED2 && (cmd.includes('ACTIVAR') || cmd.includes('INTERRUMPIR'))) {
         io.to(ESP32_LED2).emit('comando', cmd);
         console.log('Comando a ESP32-2:', cmd);
         enviado = true;
@@ -76,13 +78,13 @@ io.on('connection', function(socket) {
 
     socket.on('arduino_conectado', function() {
         ESP32_LED = socket.id;
-        console.log('ESP32-1 (LED+sensor) registrado:', socket.id);
+        console.log('ESP32-1 registrado:', socket.id);
         io.sockets.emit('esp32_status', { led: true, led2: ESP32_LED2 !== null });
     });
 
     socket.on('esp32_led2', function() {
         ESP32_LED2 = socket.id;
-        console.log('ESP32-2 (LED interno) registrado:', socket.id);
+        console.log('ESP32-2 registrado:', socket.id);
         io.sockets.emit('esp32_status', { led: ESP32_LED !== null, led2: true });
     });
 

@@ -1,6 +1,6 @@
 import socketio
 
-IP_SERVER = '192.168.8.7'
+IP_SERVER = '192.168.0.192'
 
 sio = socketio.Client()
 

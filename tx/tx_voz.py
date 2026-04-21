@@ -1,9 +1,19 @@
 import socketio
 import speech_recognition as sr
+import signal
+import sys
 
-IP_SERVER = '192.168.8.7'
+IP_SERVER = '192.168.0.192'
 
 sio = socketio.Client()
+
+def salir(sig, frame):
+    print("Cerrando...")
+    sio.disconnect()
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, salir)
+signal.signal(signal.SIGINT, salir)
 
 @sio.event
 def connect():
