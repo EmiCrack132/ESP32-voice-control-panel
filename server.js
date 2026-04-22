@@ -1,124 +1,206 @@
-var express = require('express');
-var app = express();
-var server = require('http').Server(app);
-const io = require('socket.io')(server);
-const { spawn, exec } = require('child_process');
+/**
+ * server.js
+ * Puerto: 5001  (igual al hardcodeado en los ESP32)
+ *
+ * ESP1 se identifica con evento "arduino_conectado"
+ *   → escucha texto que contenga: PRENDER / ENCENDER / APAGAR
+ * ESP2 se identifica con evento "esp32_led2"
+ *   → escucha texto que contenga: ACTIVAR / DESACTIVAR
+ *
+ * Flujo de voz:
+ *   modo "wake"    → detectar ARMANDO
+ *   modo "command" → detectar comando y mandarlo al ESP correcto
+ */
 
-app.use(express.static('public'));
+const express   = require("express");
+const http      = require("http");
+const socketIO  = require("socket.io");
+const { spawn } = require("child_process");
+const path      = require("path");
 
-let ESP32_LED = null;
-let ESP32_LED2 = null;
-let procesoVoz = null;
-let vozActiva = false;
+const PORT          = process.env.PORT || 5001;
+const PYTHON_EXE    = path.join(__dirname, "tx", ".venv", "Scripts", "python.exe");
+const PYTHON_SCRIPT = path.join(__dirname, "tx", "reconocer_voz.py");
+const WAKE_WORD     = "ARMANDO";
 
-const pythonPath = './tx/.venv/Scripts/python.exe';
+/**
+ * palabraVoz : lo que llega del STT (en MAYÚSCULAS)
+ * payload    : string que va dentro del evento "comando" que ya leen los ESP
+ * target     : "esp1" | "esp2"
+ */
+const COMANDOS = [
+  { palabraVoz: "PRENDER",     payload: "PRENDER",    target: "esp1" },
+  { palabraVoz: "ENCENDER",    payload: "ENCENDER",   target: "esp1" },
+  { palabraVoz: "APAGAR",      payload: "APAGAR",     target: "esp1" },
+  { palabraVoz: "ACTIVAR",     payload: "ACTIVAR",    target: "esp2" },
+  { palabraVoz: "INTERRUMPIR", payload: "DESACTIVAR", target: "esp2" },
+];
 
-const oldLog = console.log;
-console.log = function(...args) {
-    oldLog(...args);
-    io.sockets.emit('log', args.join(' '));
-};
+const app    = express();
+const server = http.createServer(app);
+const io     = socketIO(server);
 
-app.get('/iniciar-voz', function(req, res) {
-    if (vozActiva) { res.json({ ok: false, msg: 'Voz ya está corriendo' }); return; }
-    procesoVoz = spawn(pythonPath, ['./tx/tx_voz.py']);
-    vozActiva = true;
-    io.sockets.emit('voz_status', { activa: true });
-    procesoVoz.stdout.on('data', (d) => console.log('VOZ:', d.toString().trim()));
-    procesoVoz.stderr.on('data', (d) => console.log('VOZ ERR:', d.toString().trim()));
-    procesoVoz.on('close', () => {
-        procesoVoz = null;
-        vozActiva = false;
-        io.sockets.emit('voz_status', { activa: false });
-        console.log('Voz terminado');
+app.use(express.static(path.join(__dirname, "public")));
+
+// IDs de socket de cada ESP (null si no está conectado)
+const espSockets = { esp1: null, esp2: null };
+const webSockets = new Set();
+
+// ── Helpers ───────────────────────────────────────────────────────
+function detectarComando(texto) {
+  for (const cmd of COMANDOS) {
+    if (texto.includes(cmd.palabraVoz)) return cmd;
+  }
+  return null;
+}
+
+function notificarEstadoEsp() {
+  const status = { esp1: !!espSockets.esp1, esp2: !!espSockets.esp2 };
+  webSockets.forEach(id => io.to(id).emit("esp_status", status));
+}
+
+function reconocerAudio(wavBuffer) {
+  return new Promise((resolve, reject) => {
+    const py = spawn(PYTHON_EXE, [PYTHON_SCRIPT]);
+    let stdout = "", stderr = "";
+    py.stdout.on("data", c => stdout += c.toString());
+    py.stderr.on("data", c => stderr += c.toString());
+    py.on("close", code => {
+      if (code !== 0) return reject(new Error(`Python ${code}: ${stderr}`));
+      try { resolve(JSON.parse(stdout.trim())); }
+      catch { reject(new Error(`JSON inválido: ${stdout}`)); }
     });
-    res.json({ ok: true, msg: 'Voz iniciado' });
-});
+    py.on("error", reject);
+    py.stdin.write(wavBuffer);
+    py.stdin.end();
+  });
+}
 
-app.get('/detener-voz', function(req, res) {
-    if (procesoVoz) {
-        exec('taskkill /PID ' + procesoVoz.pid + ' /T /F', (err) => {
-            if (err) console.log('Error al matar proceso:', err.message);
+// ── Socket.io ─────────────────────────────────────────────────────
+io.on("connection", socket => {
+  console.log(`[SOCKET] Nuevo cliente: ${socket.id}`);
+
+  // Navegador
+  socket.on("identificar", data => {
+    if (data?.tipo === "web") {
+      webSockets.add(socket.id);
+      socket.tipo = "web";
+      console.log(`[WEB] Registrado: ${socket.id}`);
+      socket.emit("esp_status", { esp1: !!espSockets.esp1, esp2: !!espSockets.esp2 });
+    }
+  });
+
+  // ESP1 — se identifica con el evento que ya tiene en su código
+  socket.on("arduino_conectado", () => {
+    espSockets.esp1 = socket.id;
+    socket.esEsp    = "esp1";
+    console.log(`[ESP1] Conectado: ${socket.id}`);
+    notificarEstadoEsp();
+  });
+
+  // ESP2 — se identifica con el evento que ya tiene en su código
+  socket.on("esp32_led2", () => {
+    espSockets.esp2 = socket.id;
+    socket.esEsp    = "esp2";
+    console.log(`[ESP2] Conectado: ${socket.id}`);
+    notificarEstadoEsp();
+  });
+
+  // Sensor del ESP1
+  socket.on("sensor", valor => {
+    webSockets.forEach(id => io.to(id).emit("sensor_data", {
+      valor: Number(valor),
+      ts: Date.now(),
+    }));
+  });
+
+  // Audio del navegador
+  socket.on("audio_chunk", async payload => {
+    const modo = payload.modo || "wake";
+    try {
+      const wavBuffer = Buffer.isBuffer(payload.wav)
+        ? payload.wav
+        : Buffer.from(payload.wav);
+
+      console.log(`[AUDIO] ${wavBuffer.length} B — modo: ${modo}`);
+      socket.emit("procesando", { estado: true });
+
+      const resultado = await reconocerAudio(wavBuffer);
+      console.log(`[STT] (${modo}):`, resultado);
+
+      if (resultado.ok && resultado.texto) {
+        const texto = resultado.texto; // ya en MAYÚSCULAS desde Python
+
+        if (modo === "wake") {
+          socket.emit("texto_reconocido", {
+            texto, modo,
+            esWake: texto.includes(WAKE_WORD),
+            comando: null,
+          });
+
+        } else {
+          const cmd = detectarComando(texto);
+
+          if (cmd) {
+            console.log(`[CMD] "${cmd.palabraVoz}" → "${cmd.payload}" → ${cmd.target}`);
+
+            // Mandar al ESP correcto con el payload que ya entiende su código
+            const espId = espSockets[cmd.target];
+            if (espId) {
+              io.to(espId).emit("comando", cmd.payload);
+              console.log(`[CMD] Enviado a ${cmd.target} (${espId})`);
+            } else {
+              console.warn(`[CMD] ${cmd.target} no conectado`);
+            }
+
+            socket.emit("texto_reconocido", {
+              texto, modo,
+              comando: cmd.palabraVoz,
+              payload: cmd.payload,
+              target:  cmd.target,
+              enviado: !!espId,
+            });
+
+            io.emit("comando_enviado", {
+              palabraVoz: cmd.palabraVoz,
+              payload:    cmd.payload,
+              target:     cmd.target,
+              texto,
+            });
+
+          } else {
+            socket.emit("texto_reconocido", { texto, modo, comando: null });
+          }
+        }
+
+      } else {
+        socket.emit("texto_reconocido", {
+          texto: "", modo,
+          error: resultado.error || "Sin resultado",
+          comando: null,
         });
-        procesoVoz = null;
-        vozActiva = false;
-        io.sockets.emit('voz_status', { activa: false });
+      }
+
+    } catch (err) {
+      console.error("[ERROR]", err.message);
+      socket.emit("texto_reconocido", { texto: "", modo, error: err.message, comando: null });
+    } finally {
+      socket.emit("procesando", { estado: false });
     }
-    res.json({ ok: true, msg: 'Voz detenido' });
+  });
+
+  // Desconexión
+  socket.on("disconnect", () => {
+    webSockets.delete(socket.id);
+    if (socket.esEsp === "esp1") { espSockets.esp1 = null; console.log("[ESP1] Desconectado"); }
+    if (socket.esEsp === "esp2") { espSockets.esp2 = null; console.log("[ESP2] Desconectado"); }
+    notificarEstadoEsp();
+  });
 });
 
-app.get('/comando/:texto', function(req, res) {
-    const cmd = req.params.texto.toUpperCase();
-    let enviado = false;
-
-    if (ESP32_LED && (cmd.includes('ENCENDER') || cmd.includes('PRENDER') || cmd.includes('APAGAR'))) {
-        io.to(ESP32_LED).emit('comando', cmd);
-        console.log('Comando a ESP32-1:', cmd);
-        enviado = true;
-    }
-
-    if (ESP32_LED2 && (cmd.includes('ACTIVAR') || cmd.includes('INTERRUMPIR'))) {
-        io.to(ESP32_LED2).emit('comando', cmd);
-        console.log('Comando a ESP32-2:', cmd);
-        enviado = true;
-    }
-
-    if (!enviado) {
-        res.json({ ok: false, msg: 'Ningún ESP32 disponible para ese comando' });
-    } else {
-        res.json({ ok: true, msg: 'Comando enviado: ' + cmd });
-    }
-});
-
-io.on('connection', function(socket) {
-    console.log('Alguien conectado:', socket.id);
-
-    socket.emit('esp32_status', { led: ESP32_LED !== null, led2: ESP32_LED2 !== null });
-    socket.emit('voz_status', { activa: vozActiva });
-
-    socket.on('arduino_conectado', function() {
-        ESP32_LED = socket.id;
-        console.log('ESP32-1 registrado:', socket.id);
-        io.sockets.emit('esp32_status', { led: true, led2: ESP32_LED2 !== null });
-    });
-
-    socket.on('esp32_led2', function() {
-        ESP32_LED2 = socket.id;
-        console.log('ESP32-2 registrado:', socket.id);
-        io.sockets.emit('esp32_status', { led: ESP32_LED !== null, led2: true });
-    });
-
-    socket.on('comando', function(data) {
-        console.log('Comando recibido:', data);
-        const cmd = data.toUpperCase();
-
-        if (cmd.includes('ENCENDER') || cmd.includes('PRENDER') || cmd.includes('APAGAR')) {
-            if (ESP32_LED) io.to(ESP32_LED).emit('comando', cmd);
-        }
-        if (cmd.includes('ACTIVAR') || cmd.includes('DESACTIVAR')) {
-            if (ESP32_LED2) io.to(ESP32_LED2).emit('comando', cmd);
-        }
-    });
-
-    socket.on('sensor', function(data) {
-        console.log('Sensor:', data);
-        io.sockets.emit('sensor', data);
-    });
-
-    socket.on('disconnect', function() {
-        if (socket.id === ESP32_LED) {
-            ESP32_LED = null;
-            console.log('ESP32-1 desconectado');
-            io.sockets.emit('esp32_status', { led: false, led2: ESP32_LED2 !== null });
-        }
-        if (socket.id === ESP32_LED2) {
-            ESP32_LED2 = null;
-            console.log('ESP32-2 desconectado');
-            io.sockets.emit('esp32_status', { led: ESP32_LED !== null, led2: false });
-        }
-    });
-});
-
-server.listen(5001, function() {
-    console.log("Servidor corriendo en el puerto 5001.");
+// ── Arranque ──────────────────────────────────────────────────────
+server.listen(PORT, () => {
+  console.log(`\n✅  http://localhost:${PORT}`);
+  console.log(`    ESP1 → PRENDER / ENCENDER / APAGAR`);
+  console.log(`    ESP2 → ACTIVAR / INTERRUMPIR (→ DESACTIVAR)\n`);
 });

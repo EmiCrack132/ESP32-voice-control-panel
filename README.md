@@ -1,180 +1,140 @@
-# ESP32 Control Panel
+# Armando AI — ESP32 Voice Control
 
-Control de LEDs y lectura de sensor de luz con dos ESP32 vía WiFi y Socket.io, con reconocimiento de voz desde el navegador y panel web en tiempo real.
-
----
-
-## Flujo del sistema
-
-```
-Navegador (voz/texto) → Node.js Server → ESP32-1 → LED GPIO15
-                                        → ESP32-2 → LED interno GPIO2
-
-ESP32-1 → Sensor GPIO34 → Server → Panel web (gráfica en tiempo real)
-```
+Sistema de control por voz para dos ESP32 usando Node.js, Socket.io y Google Speech-to-Text. Di **"Armando"** y luego un comando de voz; el servidor lo reconoce y lo envía al ESP32 correcto en tiempo real.
 
 ---
 
 ## Estructura del proyecto
 
 ```
-servidor-esp32/
-├── server.js               # Servidor Node.js con Socket.io
+proyecto/
 ├── public/
-│   └── index.html          # Panel web de control
+│   └── index.html          ← Interfaz web (slime, gráfica, log)
 ├── tx/
-│   ├── .venv/              # Entorno virtual Python
-│   ├── tx_comandos.py      # Envío de comandos por texto
-│   └── tx_voz.py           # Reconocimiento de voz con Google
-└── esp32_wifi/
-    ├── esp32_wifi.ino      # Código ESP32 #1 (LED + sensor)
-    └── esp32_wifi_2.ino    # Código ESP32 #2 (LED interno)
+│   ├── reconocer_voz.py    ← Script Python: STT con Google via SpeechRecognition
+│   └── .venv/              ← Entorno virtual Python
+├── server.js               ← Servidor Node.js + Socket.io
+├── secrets.h               ← (en ESP32) WiFi credentials
+└── README.md
 ```
 
 ---
 
-## Hardware
-
-| Componente | Detalle |
-|---|---|
-| ESP32 #1 | LED en GPIO15, fotoresistencia en GPIO34 |
-| ESP32 #2 | LED interno GPIO2 |
-| Fotoresistencia | Divisor de voltaje con resistencia 100KΩ |
-
-### Circuito del sensor (ESP32 #1)
+## Cómo funciona
 
 ```
-3.3V ──── FotoR ──┬──── GPIO34
-                  │
-               R 100KΩ
-                  │
-                GND
+Micrófono → Navegador → server.js → reconocer_voz.py → Google STT
+                                  ↓
+                          Detecta "ARMANDO"
+                                  ↓
+                     Escucha comando de voz
+                                  ↓
+              ESP1 (PRENDER/ENCENDER/APAGAR)
+              ESP2 (ACTIVAR/INTERRUMPIR)
 ```
 
-### Circuito del LED (ESP32 #1)
-
-```
-GPIO15 ──── R 220Ω ──── LED ──── GND
-```
+1. La página graba en bucle continuo esperando la **wake word "ARMANDO"**
+2. Al detectarla, Armando responde **"Sí mi majestad"** por voz y espera un comando
+3. El servidor identifica el comando y lo manda por Socket.io al ESP32 correcto
+4. El ESP32 reacciona con su lógica ya cargada (sin necesidad de reprogramarlo)
 
 ---
 
-## Requisitos
+## Dependencias
 
-### Software
-- Node.js v18+
-- Python 3.10+
-- Arduino IDE con soporte ESP32
-
-### Librerías Arduino (ambos ESP32)
-- `WebSockets` by Markus Sattler — v2.7.2
-- `SocketIOclient` by Vincent Wyszynski — v0.3
-
----
-
-## Instalación
-
-### 1. Clonar el repositorio
-```bash
-git clone https://github.com/tu-usuario/servidor-esp32.git
-cd servidor-esp32
-```
-
-### 2. Instalar dependencias Node.js
+### Node.js
 ```bash
 npm install express socket.io
 ```
 
-### 3. Crear entorno virtual Python
+### Python
 ```bash
 cd tx
 python -m venv .venv
-.venv\Scripts\activate
-pip install "python-socketio[client]==4.6.1" "python-engineio==3.14.2" SpeechRecognition pyaudio
-cd ..
+.venv\Scripts\activate        # Windows
+pip install SpeechRecognition
 ```
-
-### 4. Configurar los ESP32
-
-En **esp32_wifi.ino** (ESP32 #1):
-```cpp
-const char* ssid     = "TU_WIFI";
-const char* password = "TU_PASSWORD";
-const char* serverIP = "XXX.XXX.X.X";  // IP de tu compu
-```
-El evento de identificación es `arduino_conectado`.
-
-En **esp32_wifi_2.ino** (ESP32 #2):
-```cpp
-const char* ssid     = "TU_WIFI";
-const char* password = "TU_PASSWORD";
-const char* serverIP = "XXX.XXX.X.X";  // IP de tu compu
-```
-El evento de identificación es `esp32_led2`.
-
-### 5. Subir el código a cada ESP32 desde Arduino IDE
+> `reconocer_voz.py` es el **único script Python** del proyecto. Node lo invoca como proceso hijo, le pasa el audio WAV por `stdin` y lee el JSON de resultado por `stdout`.
 
 ---
 
-## Uso
+## Ejecutar el servidor
 
-### 1. Iniciar el servidor
 ```bash
 node server.js
 ```
 
-### 2. Conectar los ESP32
-Enciende cada ESP32. En la terminal verás:
-```
-ESP32-1 registrado: xxxx
-ESP32-2 registrado: xxxx
-```
-
-### 3. Abrir el panel web
-```
-http://localhost:5001
-```
-Otros dispositivos en la misma red pueden entrar con:
-```
-http://192.168.X.X:5001
-```
+Abre `http://localhost:5001` en el navegador. Permite el acceso al micrófono cuando el navegador lo pida.
 
 ---
 
-## Comandos
+## Comandos de voz
 
-| Comando | ESP32 | Efecto |
-|---|---|---|
-| ENCENDER / PRENDER | ESP32 #1 | Enciende LED GPIO15 |
-| APAGAR | ESP32 #1 | Apaga LED GPIO15 |
-| ACTIVAR | ESP32 #2 | Enciende LED interno GPIO2 |
-| DESACTIVAR | ESP32 #2 | Apaga LED interno GPIO2 |
+| Lo que dices   | Va a  | Acción en ESP         |
+|----------------|-------|-----------------------|
+| `PRENDER`      | ESP1  | `digitalWrite(LED, HIGH)` |
+| `ENCENDER`     | ESP1  | `digitalWrite(LED, HIGH)` |
+| `APAGAR`       | ESP1  | `digitalWrite(LED, LOW)`  |
+| `ACTIVAR`      | ESP2  | `digitalWrite(LED, HIGH)` |
+| `INTERRUMPIR`  | ESP2  | `digitalWrite(LED, LOW)`  |
+
+> **Nota:** `INTERRUMPIR` se traduce a `DESACTIVAR` internamente antes de enviarse al ESP2, que es la palabra que ya tiene en su código.
 
 ---
 
-## Panel web
+## Conexión del sensor (ESP1 — pin 34)
 
-- Estado en tiempo real de ESP32 #1 y ESP32 #2
-- Indicador LED (on/off) sincronizado con el estado real
-- Sensor de luz con icono dinámico: ☀ alta · ◑ media · ☽ baja
-- Gráfica del sensor en tiempo real (últimos 60 valores)
-- Reconocimiento de voz activable desde el navegador
-- Campo de texto para enviar comandos manualmente
-- Log del servidor en vivo con colores por tipo de mensaje
+El ESP1 lee un **fotoresistor (LDR)** en el pin analógico 34. El circuito es un divisor de tensión:
+
+```
+3.3V
+ │
+ ├── [Fotoresistor / LDR]
+ │
+ ├──────────────────── Pin 34 (ADC)
+ │
+ ├── [Resistencia 100kΩ]
+ │
+GND
+```
+
+La foto-R va entre **3.3V y el nodo**, y la resistencia de 100kΩ va entre **el nodo y GND**. El pin 34 se conecta al nodo central (entre los dos componentes). Conforme cambia la luz, cambia la resistencia de la LDR y por tanto el voltaje que lee el ADC (0–4095).
+
+La lectura se envía al servidor cada 500 ms y se grafica en tiempo real en la interfaz web.
+
+---
+
+## Identificación de los ESP32
+
+Los ESP32 **no necesitan modificarse**. El servidor los reconoce por el evento que ya emiten al conectarse:
+
+| ESP  | Evento de identificación | LED  |
+|------|--------------------------|------|
+| ESP1 | `arduino_conectado`      | pin 15 |
+| ESP2 | `esp32_led2`             | pin 2  |
+
+---
+
+## Requisitos de red
+
+- El PC con Node.js y los ESP32 deben estar en la **misma red WiFi**
+- El puerto usado es **5001** (hardcodeado en ambos ESP32)
+- Los ESP32 apuntan a `serverIP` definido en `secrets.h`
+
+```cpp
+// secrets.h
+const char* ssid     = "TU_WIFI";
+const char* password = "TU_PASSWORD";
+const char* serverIP = "192.168.X.X";  // IP local del PC
+```
 
 ---
 
 ## Notas
 
-- El micrófono de voz corre en la máquina donde está el servidor, no en el navegador del cliente
-- El sensor ADC del ESP32 devuelve valores de 0 a 4095
-- Si el ESP32 se desconecta, el panel lo detecta automáticamente y actualiza el estado
-
----
-
-## Tecnologías
-
-- **Node.js** + Express + Socket.io 2.x
-- **Python** + python-socketio + SpeechRecognition
-- **ESP32** + SocketIOclient + WebSockets
-- **HTML / CSS / JS** con Canvas API y Space Mono + DM Sans
+- Se requiere conexión a internet para que `reconocer_voz.py` pueda llamar a la **API de Google Speech** (gratuita con límites).
+- El idioma de reconocimiento es **español mexicano (`es-MX`)**.
+- La ruta al ejecutable Python en `server.js` asume Windows. En Linux/Mac cambiar a:
+  ```js
+  const PYTHON_EXE = path.join(__dirname, "tx", ".venv", "bin", "python");
+  ```
