@@ -33,7 +33,7 @@ const COMANDOS = [
   { palabraVoz: "ENCENDER",    payload: "ENCENDER",   target: "esp1" },
   { palabraVoz: "APAGAR",      payload: "APAGAR",     target: "esp1" },
   { palabraVoz: "ACTIVAR",     payload: "ACTIVAR",    target: "esp2" },
-  { palabraVoz: "INTERRUMPIR", payload: "DESACTIVAR", target: "esp2" },
+  { palabraVoz: "INTERRUMPIR", payload: "INTERRUMPIR", target: "esp2" },
 ];
 
 const app    = express();
@@ -202,5 +202,5 @@ io.on("connection", socket => {
 server.listen(PORT, () => {
   console.log(`\n✅  http://localhost:${PORT}`);
   console.log(`    ESP1 → PRENDER / ENCENDER / APAGAR`);
-  console.log(`    ESP2 → ACTIVAR / INTERRUMPIR (→ DESACTIVAR)\n`);
+  console.log(`    ESP2 → ACTIVAR / INTERRUMPIR\n`);
 });
