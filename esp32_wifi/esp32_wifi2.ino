@@ -21,7 +21,7 @@ void socketIOEvent(socketIOmessageType_t type, uint8_t* payload, size_t length) 
             if (msg.indexOf("ACTIVAR") >= 0) {
                 digitalWrite(LED, HIGH);
                 Serial.println("LED interno ON");
-            } else if (msg.indexOf("DESACTIVAR") >= 0) {
+            } else if (msg.indexOf("INTERRUMPIR") >= 0) {
                 digitalWrite(LED, LOW);
                 Serial.println("LED interno OFF");
             }

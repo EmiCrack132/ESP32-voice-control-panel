@@ -78,7 +78,6 @@ Abre `http://localhost:5001` en el navegador. Permite el acceso al micrófono cu
 | `ACTIVAR`      | ESP2  | `digitalWrite(LED, HIGH)` |
 | `INTERRUMPIR`  | ESP2  | `digitalWrite(LED, LOW)`  |
 
-> **Nota:** `INTERRUMPIR` se traduce a `DESACTIVAR` internamente antes de enviarse al ESP2, que es la palabra que ya tiene en su código.
 
 ---
 
