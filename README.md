@@ -124,7 +124,7 @@ Los ESP32 **no necesitan modificarse**. El servidor los reconoce por el evento q
 // secrets.h
 const char* ssid     = "TU_WIFI";
 const char* password = "TU_PASSWORD";
-const char* serverIP = "192.168.X.X";  // IP local del PC
+const char* serverIP = "XXX.XXX.X.X";  // IP local del PC
 ```
 
 ---
